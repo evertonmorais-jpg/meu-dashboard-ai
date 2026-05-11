@@ -1,199 +1,236 @@
 import streamlit as st
 import pandas as pd
-import requests
-from io import StringIO
+import time
+from streamlit_autorefresh import st_autorefresh
 
-# Configuração da página para ocupar toda a largura
-st.set_page_config(page_title="Status Contagem Insumos", layout="wide")
+# Configuração da página
+st.set_page_config(
+    page_title="Status Contagem de Insumos",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
-# Injeção de CSS para replicar o design identicamente
+# URL da Planilha (Exportação CSV)
+SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Cxmeb_QKo0_XyYezfv5agDePLXFu7WYImgLMNzBiecI/export?format=csv'
+
+# Cores das Regionais
+REGIONAL_COLORS = {
+    'RODRIGO': '#E91E63',
+    'DANIELE': '#FB8C00',
+    'SAMUEL': '#039BE5',
+    'THAINA MARQUES': '#D81B60',
+    'LUIZ ALEXANDRE': '#FFA000',
+    'TARCIO': '#0288D1',
+    'JUCILENE': '#C2185B',
+    'CAIO': '#F57C00',
+    'THAINA PRESTES': '#00BCD4',
+    'EDUARDO': '#D32F2F',
+    'ANDRIUS': '#F4511E',
+    'TAISE': '#00838F'
+}
+DEFAULT_COLOR = '#424242'
+
+# Injeção de CSS para replicar o design visual
 st.markdown("""
-    <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-    /* Estilos Globais */
-    .stApp {
-        background-color: #f8fafc;
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Fredoka:wght@300..700&display=swap');
+
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 2rem;
+        background-color: #fefcf7;
     }
     
-    /* Título Principal */
-    .main-title {
-        font-family: 'Luckiest Guy', cursive;
-        font-size: 62px;
-        line-height: 70px;
-        text-align: center;
-        color: #1a1a1a;
-        margin-top: 20px;
-        margin-bottom: 20px;
-        letter-spacing: 0.05em;
+    [data-testid="stHeader"] { background-color: rgba(0,0,0,0); }
+
+    .main-container {
+        max-width: 1600px;
+        margin: 0 auto;
+        font-family: 'Fredoka', sans-serif;
     }
 
-    /* Contador Gigante */
+    .header-title {
+        font-family: 'Luckiest Guy', cursive;
+        text-align: center;
+        margin-bottom: 1rem;
+        color: #1a1a1a;
+        line-height: 1.1;
+    }
+    
+    .desktop-title { font-size: 62px; display: block; white-space: nowrap; }
+    @media (max-width: 1024px) { .desktop-title { display: none; } }
+    
+    .mobile-title { font-size: 32px; display: none; }
+    @media (max-width: 1024px) { .mobile-title { display: block; } }
+
     .stats-container {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 30px;
-        margin-bottom: 50px;
-        padding: 20px 0;
+        gap: 2rem;
+        margin-bottom: 2rem;
     }
-
-    .number-big {
+    
+    .total-number {
         font-family: 'Luckiest Guy', cursive;
         font-size: 180px;
-        line-height: 0.8;
+        line-height: 1;
         background: linear-gradient(to bottom, #FFD54F, #FF9100, #FF3D00);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        /* Efeito de contorno e sombra identico ao React */
+        -webkit-text-stroke: 1.5px #1e3a8a;
         filter: drop-shadow(0 12px 0 #1E3A8A);
-        text-shadow: 
-            -3px -3px 0 #1E3A8A,  
-             3px -3px 0 #1E3A8A,
-            -3px  3px 0 #1E3A8A,
-             3px  3px 0 #1E3A8A;
     }
-
-    .label-container {
-        text-align: left;
+    
+    .stats-text {
         font-family: 'Luckiest Guy', cursive;
-        color: #1a1a1a;
+        text-align: left;
         line-height: 0.85;
         text-transform: uppercase;
+        color: #1a1a1a;
+    }
+    
+    .stats-main-text { font-size: 60px; }
+    .stats-sub-text { font-size: 36px; }
+    
+    @media (max-width: 768px) {
+        .stats-container { gap: 0.5rem; }
+        .total-number { font-size: 100px; filter: drop-shadow(0 8px 0 #1E3A8A); }
+        .stats-main-text { font-size: 32px; }
+        .stats-sub-text { font-size: 22px; }
     }
 
-    .label-main { font-size: 60px; }
-    .label-sub { font-size: 40px; }
+    .grid-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
 
-    /* Cards das Regionais */
     .card {
         background: white;
-        border-radius: 20px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        border-radius: 24px;
         overflow: hidden;
-        margin-bottom: 20px;
-        height: 100%;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        border: 1px solid #f1f5f9;
         display: flex;
         flex-direction: column;
-        border: none;
     }
 
     .card-header {
-        padding: 12px 16px;
+        padding: 0.75rem 1rem;
+        color: white;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        color: white;
     }
 
-    .card-header span:first-child {
+    .card-title {
         font-family: 'Luckiest Guy', cursive;
-        font-size: 20px;
-        letter-spacing: 0.025em;
+        font-size: 24px;
+        margin: 0;
     }
 
     .card-badge {
-        background: rgba(255, 255, 255, 0.2);
-        padding: 2px 12px;
-        border-radius: 999px;
+        background-color: rgba(30, 30, 30, 0.3);
+        width: 38px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
         font-family: 'Luckiest Guy', cursive;
-        font-size: 18px;
     }
 
-    .card-body {
-        padding: 15px;
+    .card-content {
+        padding: 1rem;
         font-family: 'Fredoka', sans-serif;
-        font-size: 20px; /* Fonte aumentada conforme solicitado */
-        font-weight: 600;
+        font-weight: 700;
+        font-size: 18px;
         color: #1e293b;
         line-height: 1.3;
     }
-    
-    /* Responsividade para Mobile */
-    @media (max-width: 768px) {
-        .main-title { font-size: 36px; line-height: 40px; }
-        .number-big { font-size: 120px; }
-        .label-main { font-size: 40px; }
-        .label-sub { font-size: 25px; }
+
+    .footer {
+        text-align: right;
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 3rem;
+        opacity: 0.7;
     }
-    </style>
-    """, unsafe_allow_html=True)
+</style>
+""", unsafe_allow_html=True)
 
-# Cores das Regionais identicas ao React
-REGIONAL_COLORS = {
-    'RODRIGO': '#E91E63', 'THAINA PRESTES': '#FF9800', 'SAMUEL': '#2196F3',
-    'TARCIO': '#4CAF50', 'DANIELE': '#9C27B0', 'THAINA MARQUES': '#3F51B5',
-    'EDUARDO': '#F44336', 'TAISE': '#00BCD4', 'CAIO': '#FFEB3B',
-    'JUCILENE': '#795548', 'LUIZ ALEXANDRE': '#607D8B', 'ANDRIUS': '#8BC34A'
-}
-DEFAULT_COLOR = '#424242'
-
-CSV_URL = 'https://docs.google.com/spreadsheets/d/1Cxmeb_QKo0_XyYezfv5agDePLXFu7WYImgLMNzBiecI/export?format=csv'
-
-@st.cache_data(ttl=300) # Atualiza a cada 5 minutos
+@st.cache_data(ttl=300)
 def load_data():
     try:
-        response = requests.get(CSV_URL)
-        df = pd.read_csv(StringIO(response.text))
-        # Normaliza nomes de colunas
-        df.columns = [c.strip() for c in df.columns]
-        return df
-    except Exception as e:
-        st.error(f"Erro ao acessar a planilha: {e}")
-        return pd.DataFrame()
+        df = pd.read_csv(SHEET_URL)
+        df.columns = [col.strip() for col in df.columns]
+        mapping = {'Lojas': 'id', 'Check': 'check', 'Regional': 'regional'}
+        # Ajuste flexível de nomes de colunas
+        rename_map = {}
+        for expected in mapping.keys():
+            for actual in df.columns:
+                if actual.lower() == expected.lower():
+                    rename_map[actual] = mapping[expected]
+        df = df.rename(columns=rename_map)
+        return df[['id', 'check', 'regional']].dropna()
+    except:
+        return None
 
-df = load_data()
+def main():
+    # Atualização automática a cada 5 minutos
+    st_autorefresh(interval=300 * 1000, key="data_refresh")
+    
+    df = load_data()
+    
+    if df is not None:
+        pending_df = df[df['check'].str.lower() == 'pendente']
+        total_pending = len(pending_df)
+        
+        # Agrupamento e Ordenação (mesma lógica do React)
+        groups = pending_df.groupby('regional')['id'].apply(list).to_dict()
+        sorted_groups = sorted(groups.items(), key=lambda x: len(x[1]), reverse=True)
 
-if not df.empty:
-    # Título Principal
-    st.markdown('<div class="main-title">STATUS DE CONCLUSÃO<br/>CONTAGEM DE INSUMOS</div>', unsafe_allow_html=True)
+        # HTML do Dashboard
+        cards_html = "".join([
+            f'''
+            <div class="card">
+                <div class="card-header" style="background-color: {REGIONAL_COLORS.get(reg.upper(), DEFAULT_COLOR)}">
+                    <h3 class="card-title">{reg.title()}</h3>
+                    <div class="card-badge">{len(stores)}</div>
+                </div>
+                <div class="card-content">
+                    {", ".join(map(str, stores))}
+                </div>
+            </div>
+            ''' for reg, stores in sorted_groups
+        ])
 
-    # Processamento dos Dados
-    pending_df = df[df['Check'].str.lower() == 'pendente']
-    total_pending = len(pending_df)
-
-    # Cabeçalho de Estatísticas
-    st.markdown(f"""
-        <div class="stats-container">
-            <div class="number-big">{total_pending}</div>
-            <div class="label-container">
-                <div class="label-main">LOJAS<br/>PENDENTES</div>
-                <div class="label-sub">NO TOTAL</div>
+        st.markdown(f"""
+        <div class="main-container">
+            <div class="header-title">
+                <span class="desktop-title">STATUS DE CONCLUSÃO CONTAGEM DE INSUMOS</span>
+                <span class="mobile-title">STATUS DE CONCLUSÃO<br>CONTAGEM DE INSUMOS</span>
+            </div>
+            
+            <div class="stats-container">
+                <div class="total-number">{total_pending}</div>
+                <div class="stats-text">
+                    <span class="stats-main-text">LOJAS<br>PENDENTES</span><br>
+                    <span class="stats-sub-text">NO TOTAL</span>
+                </div>
+            </div>
+            
+            <div class="grid-container">
+                {cards_html}
+            </div>
+            
+            <div class="footer">
+                Gerado automaticamente • Ri Happy & PBKids
             </div>
         </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    # Agrupamento por Regional
-    regional_groups = pending_df.groupby('Regional')['Lojas'].apply(list).to_dict()
-    sorted_regionals = sorted(regional_groups.items())
-
-    # Grid de CARDS (4 colunas no desktop)
-    cols_per_row = 4
-    for i in range(0, len(sorted_regionals), cols_per_row):
-        cols = st.columns(cols_per_row)
-        for j in range(cols_per_row):
-            if i + j < len(sorted_regionals):
-                name, stores = sorted_regionals[i + j]
-                color = REGIONAL_COLORS.get(name, DEFAULT_COLOR)
-                stores_text = ", ".join(map(str, stores))
-                
-                with cols[j]:
-                    st.markdown(f"""
-                        <div class="card">
-                            <div class="card-header" style="background-color: {color};">
-                                <span>{name}</span>
-                                <span class="card-badge">{len(stores)}</span>
-                            </div>
-                            <div class="card-body">
-                                {stores_text}
-                            </div>
-                        </div>
-                    """, unsafe_allow_html=True)
-    
-    # Rodapé
-    st.markdown("""
-        <div style="text-align: right; color: #64748b; font-style: italic; font-size: 12px; margin-top: 30px;">
-            Atualizando automaticamente a cada 5 minutos direto da Planilha Google
-        </div>
-    """, unsafe_allow_html=True)
-else:
-    st.warning("Aguardando carregamento de dados...")
+if __name__ == "__main__":
+    main()
