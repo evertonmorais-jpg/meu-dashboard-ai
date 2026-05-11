@@ -1,152 +1,67 @@
 import streamlit as st
 import pandas as pd
 
-# Configuração da página para ocupar a tela toda
-st.set_page_config(page_title="Dashboard Ri Happy - Insumos", layout="wide")
+# 1. Configurações Iniciais do Dashboard
+st.set_page_config(page_title="Status Contagem Insumos", layout="wide")
 
-# URL da sua planilha (exportada como CSV)
-SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Cxmeb_QKo0_XyYezfv5agDePLXFu7WYImgLMNzBiecI/export?format=csv'
+# 2. Link de Exportação CSV da Planilha Google
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1Cxmeb_QKo0_XyYezfv5agDePLXFu7WYImgLMNzBiecI/export?format=csv"
 
-# Mapeamento de cores das regionais
-REGIONAL_COLORS = {
-    'RODRIGO': '#E91E63',
-    'THAINA PRESTES': '#FF5722',
-    'THAINA MARQUES': '#9C27B0',
-    'SAMUEL': '#2196F3',
-    'TARCIO': '#4CAF50',
-    'DANIELE': '#FFC107',
-    'EDUARDO': '#3F51B5',
-    'TAISE': '#009688',
-    'JUCILENE': '#795548',
-    'CAIO': '#607D8B',
-    'LUIZ ALEXANDRE': '#E65100',
-    'ANDRIUS': '#D32F2F',
-}
-
-# CSS Customizado para estilização (Fontes do Google e layout)
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Fredoka:wght@400;700&display=swap');
-
-    .main-title {
-        font-family: 'Luckiest Guy', cursive;
-        font-size: 50px;
-        text-align: center;
-        color: #1a1a1a;
-        margin-bottom: 30px;
-    }
-
-    .main-stat-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 30px;
-        margin-bottom: 40px;
-    }
-
-    .big-number {
-        font-family: 'Luckiest Guy', cursive;
-        font-size: 150px;
-        line-height: 1;
-        background: linear-gradient(to bottom, #FFD54F, #FF3D00);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        filter: drop-shadow(0 8px 0 #1E3A8A);
-    }
-
-    .stat-text {
-        font-family: 'Luckiest Guy', cursive;
-        font-size: 40px;
-        line-height: 0.9;
-        color: #1a1a1a;
-        text-transform: uppercase;
-    }
-
-    .regional-card {
-        background: white;
-        border-radius: 15px;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        overflow: hidden;
-        margin-bottom: 20px;
-        border: 1px solid #e2e8f0;
-    }
-
-    .card-header {
-        padding: 12px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        color: white;
-        font-family: 'Luckiest Guy', cursive;
-    }
-
-    .card-body {
-        padding: 12px;
-        font-family: 'Fredoka', sans-serif;
-        font-size: 18px;
-        font-weight: bold;
-        color: #334155;
-    }
-
-    .badge {
-        background: rgba(255,255,255,0.2);
-        padding: 2px 10px;
-        border-radius: 10px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Função para carregar os dados
-@st.cache_data(ttl=300) # Atualiza a cada 5 minutos
+@st.cache_data(ttl=300) # Atualiza automaticamente a cada 5 minutos
 def load_data():
-    try:
-        df = pd.read_csv(SHEET_URL)
-        # Normalizando nomes de colunas
-        df.columns = [c.capitalize() for c in df.columns]
-        return df
-    except Exception as e:
-        st.error(f"Erro ao carregar planilha: {e}")
-        return pd.DataFrame()
+    return pd.read_csv(SHEET_URL)
 
-df = load_data()
+try:
+    # Carregar Dados
+    df = load_data()
+    
+    # Limpeza básica de nomes de colunas
+    df.columns = [c.strip() for c in df.columns]
+    
+    # Filtrar apenas o que está "Pendente"
+    pendentes_df = df[df['Check'].str.lower() == 'pendente'].copy()
+    total_pendentes = len(pendentes_df)
 
-if not df.empty:
-    # Filtrar apenas as pendentes
-    pending_df = df[df['Check'].str.lower() == 'pendente']
-    total_pending = len(pending_df)
-
-    # Título
-    st.markdown('<h1 class="main-title">STATUS DE CONCLUSÃO CONTAGEM DE INSUMOS</h1>', unsafe_allow_html=True)
-
-    # Destaque do Total
-    st.markdown(f"""
-        <div class="main-stat-container">
-            <div class="big-number">{total_pending}</div>
-            <div class="stat-text">LOJAS<br/>PENDENTES<br/><span style="font-size: 25px;">NO TOTAL</span></div>
-        </div>
+    # 3. Título Responsivo
+    st.markdown("""
+        <h1 style='text-align: center; color: #1a1a1a; font-family: sans-serif; font-size: 2.5rem;'>
+            STATUS DE CONCLUSÃO<br>CONTAGEM DE INSUMOS
+        </h1>
     """, unsafe_allow_html=True)
 
-    # Agrupar por regional
-    grouped = pending_df.groupby('Regional')['Lojas'].apply(list).reset_index()
+    # 4. Métrica Principal
+    col1, col2 = st.columns([1, 1.5])
+    with col1:
+        st.markdown(f"""
+            <div style='text-align: right; margin-right: 20px;'>
+                <span style='font-size: 150px; font-weight: 900; color: #FF6F00; line-height: 1;'>{total_pendentes}</span>
+            </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown("""
+            <div style='margin-top: 25px;'>
+                <h2 style='font-size: 40px; margin: 0; line-height: 0.9;'>LOJAS<br>PENDENTES</h2>
+                <p style='font-size: 25px; margin: 0;'>NO TOTAL</p>
+            </div>
+        """, unsafe_allow_html=True)
 
-    # Layout de Grid (4 colunas)
-    cols = st.columns(4)
-    for idx, row in grouped.iterrows():
-        regional_name = row['Regional']
-        stores = row['Lojas']
-        color = REGIONAL_COLORS.get(regional_name, '#424242')
+    st.write("---")
+
+    # 5. Cards por Regional
+    regionais = sorted(pendentes_df['Regional'].unique())
+    # Cria um grid de até 4 colunas
+    col_grid = st.columns(4)
+    
+    for i, regional in enumerate(regionais):
+        lojas_da_regional = pendentes_df[pendentes_df['Regional'] == regional]['Lojas'].astype(str).tolist()
         
-        with cols[idx % 4]:
-            st.markdown(f"""
-                <div class="regional-card">
-                    <div class="card-header" style="background-color: {color};">
-                        <span>{regional_name}</span>
-                        <span class="badge">{len(stores)}</span>
-                    </div>
-                    <div class="card-body">
-                        {", ".join(map(str, stores))}
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-else:
-    st.info("Aguardando dados da planilha...")
+        with col_grid[i % 4]:
+            with st.container(border=True):
+                st.markdown(f"### 📍 {regional}")
+                st.write(f"**{len(lojas_da_regional)} pendentes:**")
+                # Exibe as lojas separadas por vírgula
+                st.info(", ".join(lojas_da_regional))
+
+except Exception as e:
+    st.error(f"Erro ao carregar os dados: {e}")
+    st.warning("Dica: Verifique se a planilha está configurada para acesso público via link.")
