@@ -256,46 +256,42 @@ def main():
         sorted_groups = sorted(groups.items(), key=lambda x: len(x[1]), reverse=True)
 
         # Main Layout
-        html_content = f"""
-<div class="main-container">
-    <div class="header-title">
-        <span class="desktop-title">STATUS DE CONCLUSÃO CONTAGEM DE INSUMOS</span>
-        <span class="mobile-title">STATUS DE CONCLUSÃO<br>CONTAGEM DE INSUMOS</span>
-    </div>
-    
-    <div class="stats-container">
-        <div class="total-number">{total_pending}</div>
-        <div class="stats-text">
-            <span class="stats-main-text">LOJAS<br>PENDENTES</span><br>
-            <span class="stats-sub-text">NO TOTAL</span>
-        </div>
-    </div>
-    
-    <div class="grid-container">
-"""
-        
-        for reg, stores in sorted_groups:
-            color = REGIONAL_COLORS.get(reg.upper(), DEFAULT_COLOR)
-            stores_list = ", ".join(map(str, stores))
-            html_content += f"""
-        <div class="card">
-            <div class="card-header" style="background-color: {color}">
-                <h3 class="card-title">{reg.title()}</h3>
-                <div class="card-badge">{len(stores)}</div>
+        st.markdown(f"""
+        <div class="main-container">
+            <div class="header-title">
+                <span class="desktop-title">STATUS DE CONCLUSÃO CONTAGEM DE INSUMOS</span>
+                <span class="mobile-title">STATUS DE CONCLUSÃO<br>CONTAGEM DE INSUMOS</span>
             </div>
-            <div class="card-content">
-                {stores_list}
-            </div>
-        </div>
-"""
             
-        html_content += """
-    <div class="footer">
-        Gerado automaticamente • Ri Happy & PBKids
-    </div>
-</div>
-"""
-        st.markdown(html_content, unsafe_allow_html=True)
+            <div class="stats-container">
+                <div class="total-number">{total_pending}</div>
+                <div class="stats-text">
+                    <span class="stats-main-text">LOJAS<br>PENDENTES</span><br>
+                    <span class="stats-sub-text">NO TOTAL</span>
+                </div>
+            </div>
+            
+            <div class="grid-container">
+                {''.join([
+                    f'''
+                    <div class="card">
+                        <div class="card-header" style="background-color: {REGIONAL_COLORS.get(reg.upper(), DEFAULT_COLOR)}">
+                            <h3 class="card-title">{reg.title()}</h3>
+                            <div class="card-badge">{len(stores)}</div>
+                        </div>
+                        <div class="card-content">
+                            {", ".join(map(str, stores))}
+                        </div>
+                    </div>
+                    ''' for reg, stores in sorted_groups
+                ])}
+            </div>
+            
+            <div class="footer">
+                Gerado automaticamente • Ri Happy & PBKids
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         
         # Auto-refresh mechanism (Streamlit will rerun the whole script)
         # Using a small trick with time.sleep and st.rerun
